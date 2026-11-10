@@ -54,10 +54,10 @@ class MainActivity : ComponentActivity() {
             ) {
                 MainScreen(
                     jniStatus = stringFromJNI(),
-                    onDownloadWhisper = { statusUpdate -> downloadWhisperModel(statusUpdate) },
-                    onDownloadTranslation = { statusUpdate ->
-                        translationManager.downloadModel { success, msg ->
-                            statusUpdate(msg)
+                    onDownloadWhisper = { onStatus -> downloadWhisperModel(onStatus) },
+                    onDownloadTranslation = { onStatus ->
+                        translationManager.downloadModel { _, msg ->
+                            onStatus(msg)
                         }
                     },
                     onTranslate = { text, callback ->
@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
     private fun downloadWhisperModel(onStatus: (String) -> Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                onStatus("Descargando modelo Whisper...")
+                withContext(Dispatchers.Main) { onStatus("Descargando modelo Whisper...") }
                 val modelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin"
                 val file = File(filesDir, "ggml-tiny.en.bin")
                 
@@ -101,8 +101,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     jniStatus: String,
-    onDownloadWhisper: (String) -> Unit,
-    onDownloadTranslation: (String) -> Unit,
+    onDownloadWhisper: ((String) -> Unit) -> Unit,
+    onDownloadTranslation: ((String) -> Unit) -> Unit,
     onTranslate: (String, (String) -> Unit) -> Unit
 ) {
     var whisperStatus by remember { mutableStateOf("Comprobar estado") }
@@ -125,7 +125,9 @@ fun MainScreen(
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(text = "MODELO WHISPER", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { onDownloadWhisper { whisperStatus = it } }) {
+                Button(onClick = {
+                    onDownloadWhisper { statusMsg -> whisperStatus = statusMsg }
+                }) {
                     Text("DESCARGAR WHISPER")
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -137,7 +139,9 @@ fun MainScreen(
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(text = "MODELO DE TRADUCCIÓN", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { onDownloadTranslation { translationStatus = it } }) {
+                Button(onClick = {
+                    onDownloadTranslation { statusMsg -> translationStatus = statusMsg }
+                }) {
                     Text("DESCARGAR TRADUCCIÓN")
                 }
                 Spacer(modifier = Modifier.height(4.dp))
