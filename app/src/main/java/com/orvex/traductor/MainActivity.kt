@@ -110,6 +110,19 @@ fun MainScreen(
     var recognizedText by remember { mutableStateOf("Aquí aparecerá el texto reconocido por Whisper.") }
     var translatedText by remember { mutableStateOf("Aquí aparecerá el texto traducido por ML Kit.") }
     var processingState by remember { mutableStateOf("Esperando...") }
+    var isTranslating by remember { mutableStateOf(false) }
+
+    // Banco de frases de prueba para simulación iterativa
+    val testPhrases = remember {
+        listOf(
+            "I don't know what happened.",
+            "Where are you going?",
+            "I need your help.",
+            "We have to leave now.",
+            "What are you doing here?"
+        )
+    }
+    var phraseIndex by remember { mutableStateOf(0) }
 
     Column(
         modifier = Modifier
@@ -121,6 +134,7 @@ fun MainScreen(
         Text(text = "TRADUCTOR V0.3 ANDROID", style = MaterialTheme.typography.titleLarge)
         Text(text = "Nativo: $jniStatus", style = MaterialTheme.typography.bodySmall)
 
+        // MODELO WHISPER
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(text = "MODELO WHISPER", style = MaterialTheme.typography.titleMedium)
@@ -135,6 +149,7 @@ fun MainScreen(
             }
         }
 
+        // MODELO TRADUCCIÓN
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(text = "MODELO DE TRADUCCIÓN", style = MaterialTheme.typography.titleMedium)
@@ -149,22 +164,35 @@ fun MainScreen(
             }
         }
 
+        // BOTÓN DE SIMULACIÓN INTERACTIVA CON FRASES ROTATIVAS
         Button(
             modifier = Modifier.fillMaxWidth(),
+            enabled = !isTranslating,
             onClick = {
-                processingState = "Prueba de traducción ML Kit..."
-                recognizedText = "I don't know what happened."
-                onTranslate(recognizedText) { translated ->
+                isTranslating = true
+                processingState = "Traduciendo frase ${phraseIndex + 1} de ${testPhrases.size}..."
+                
+                // Seleccionar la siguiente frase del banco local de forma síncrona
+                val currentPhrase = testPhrases[phraseIndex]
+                recognizedText = currentPhrase
+                
+                // Avanzar índice para la próxima pulsación (rotativo)
+                phraseIndex = (phraseIndex + 1) % testPhrases.size
+
+                // Enviar la variable local directamente a ML Kit (evita desfasajes de Compose)
+                onTranslate(currentPhrase) { translated ->
                     translatedText = translated
                     processingState = "Traducido correctamente"
+                    isTranslating = false
                 }
             }
         ) {
-            Text("PROBAR TRADUCCIÓN (SIMULACIÓN 6S)")
+            Text(if (isTranslating) "TRADUCIENDO..." else "PROBAR TRADUCCIÓN (SIGUIENTE FRASE)")
         }
 
         Text(text = "Estado: $processingState", style = MaterialTheme.typography.bodyMedium)
 
+        // TEXTO ORIGINAL (INGLÉS)
         OutlinedCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(text = "TEXTO ORIGINAL (INGLÉS)", style = MaterialTheme.typography.labelMedium)
@@ -173,6 +201,7 @@ fun MainScreen(
             }
         }
 
+        // TRADUCCIÓN (ESPAÑOL)
         OutlinedCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(text = "TRADUCCIÓN (ESPAÑOL)", style = MaterialTheme.typography.labelMedium)
