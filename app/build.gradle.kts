@@ -3,7 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-
 android {
     namespace = "com.orvex.traductor"
     compileSdk = 35
@@ -36,48 +35,13 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "17"
-    }
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-    buildFeatures {
-        compose = true
-    }
-    
-    // -> AÑADE ESTE BLOQUE AQUÍ PARA FORZAR LA VERSIÓN DEL COMPILADOR DE COMPOSE COMPATIBLE CON KOTLIN 1.9.24
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
-}
-
-
-
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-  
-
-kotlinOptions {
         jvmTarget = "17"
         freeCompilerArgs += listOf(
             "-P",
@@ -85,17 +49,19 @@ kotlinOptions {
         )
     }
 
-
-
-
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
         }
     }
+
     buildFeatures {
         compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
 }
 
@@ -103,8 +69,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.1")
-    
-    // Usar la versión moderna de Compose BOM compatible con Kotlin 1.9.x
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
