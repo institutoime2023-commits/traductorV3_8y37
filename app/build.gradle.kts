@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+
 android {
     namespace = "com.orvex.traductor"
     compileSdk = 35
@@ -25,6 +26,41 @@ android {
             abiFilters += "arm64-v8a"
         }
     }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+    buildFeatures {
+        compose = true
+    }
+    
+    // -> AÑADE ESTE BLOQUE AQUÍ PARA FORZAR LA VERSIÓN DEL COMPILADOR DE COMPOSE COMPATIBLE CON KOTLIN 1.9.24
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+}
+
+
+
 
     buildTypes {
         release {
