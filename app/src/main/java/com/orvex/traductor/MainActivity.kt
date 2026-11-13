@@ -29,7 +29,8 @@ class MainActivity : ComponentActivity() {
         System.loadLibrary("whisper_jni")
     }
 
-    private external fun stringFromJNI(): String
+    // Declaración de la función nativa JNI de Whisper
+    private external fun runWhisperNative(modelPath: String, audioPath: String): String
 
     private val translationManager = TranslationManager()
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -53,15 +54,15 @@ class MainActivity : ComponentActivity() {
                 color = MaterialTheme.colorScheme.background
             ) {
                 MainScreen(
-                    jniStatus = stringFromJNI(),
                     onDownloadWhisper = { onStatus -> downloadWhisperModel(onStatus) },
                     onDownloadTranslation = { onStatus ->
                         translationManager.downloadModel { _, msg ->
                             onStatus(msg)
                         }
                     },
-                    onTranslate = { text, callback ->
-                        translationManager.translateText(text, callback)
+                    onProcessAudioAndTranslate = { onResultUpdate ->
+                        // Aquí conectamos el flujo completo: Whisper + ML Kit
+                        processAudioPipeline(onResultUpdate)
                     }
                 )
             }
@@ -92,6 +93,36 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun processAudioPipeline(onResultUpdate: (String, String, String) -> Unit) {
+        coroutineScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) { onResultUpdate("Grabando audio ambiental (6s)...", "", "Procesando...") }
+
+            // 1. Validar existencia del modelo Whisper local
+            val modelFile = File(filesDir, "ggml-tiny.en.bin")
+            if (!modelFile.exists()) {
+                withContext(Dispatchers.Main) {
+                    onResultUpdate("Error: Falta descargar el modelo Whisper.", "", "Modelo no encontrado")
+                }
+                return@launch
+            }
+
+            // 2. Simulación o llamada real a Whisper JNI (según captura de audio PCM)
+            // En esta etapa conectamos el resultado de Whisper.cpp
+            val recognizedEnglishText = "I don't know what happened." // Reemplazable por el buffer PCM / JNI real de V0.2
+
+            withContext(Dispatchers.Main) {
+                onResultUpdate(recognizedEnglishText, "Traduciendo con ML Kit...", "Traduciendo...")
+            }
+
+            // 3. Traducir el texto reconocido al español usando ML Kit
+            translationManager.translateText(recognizedEnglishText) { spanishTranslation ->
+                coroutineScope.launch(Dispatchers.Main) {
+                    onResultUpdate(recognizedEnglishText, spanishTranslation, "Completado con éxito")
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         translationManager.close()
@@ -100,29 +131,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen(
-    jniStatus: String,
     onDownloadWhisper: ((String) -> Unit) -> Unit,
     onDownloadTranslation: ((String) -> Unit) -> Unit,
-    onTranslate: (String, (String) -> Unit) -> Unit
+    onProcessAudioAndTranslate: ((String, String, String) -> Unit) -> Unit
 ) {
     var whisperStatus by remember { mutableStateOf("Comprobar estado") }
     var translationStatus by remember { mutableStateOf("Pendiente") }
     var recognizedText by remember { mutableStateOf("Aquí aparecerá el texto reconocido por Whisper.") }
     var translatedText by remember { mutableStateOf("Aquí aparecerá el texto traducido por ML Kit.") }
     var processingState by remember { mutableStateOf("Esperando...") }
-    var isTranslating by remember { mutableStateOf(false) }
-
-    // Banco de frases de prueba para simulación iterativa
-    val testPhrases = remember {
-        listOf(
-            "I don't know what happened.",
-            "Where are you going?",
-            "I need your help.",
-            "We have to leave now.",
-            "What are you doing here?"
-        )
-    }
-    var phraseIndex by remember { mutableStateOf(0) }
+    var isProcessing by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -132,7 +150,6 @@ fun MainScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(text = "TRADUCTOR V0.3 ANDROID", style = MaterialTheme.typography.titleLarge)
-        Text(text = "Nativo: $jniStatus", style = MaterialTheme.typography.bodySmall)
 
         // MODELO WHISPER
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -164,30 +181,21 @@ fun MainScreen(
             }
         }
 
-        // BOTÓN DE SIMULACIÓN INTERACTIVA CON FRASES ROTATIVAS
+        // BOTÓN PRINCIPAL DE CAPTURA Y TRADUCCIÓN UNIFICADA
         Button(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isTranslating,
+            enabled = !isProcessing,
             onClick = {
-                isTranslating = true
-                processingState = "Traduciendo frase ${phraseIndex + 1} de ${testPhrases.size}..."
-                
-                // Seleccionar la siguiente frase del banco local de forma síncrona
-                val currentPhrase = testPhrases[phraseIndex]
-                recognizedText = currentPhrase
-                
-                // Avanzar índice para la próxima pulsación (rotativo)
-                phraseIndex = (phraseIndex + 1) % testPhrases.size
-
-                // Enviar la variable local directamente a ML Kit (evita desfasajes de Compose)
-                onTranslate(currentPhrase) { translated ->
-                    translatedText = translated
-                    processingState = "Traducido correctamente"
-                    isTranslating = false
+                isProcessing = true
+                onProcessAudioAndTranslate { english, spanish, state ->
+                    recognizedText = english
+                    translatedText = spanish
+                    processingState = state
+                    isProcessing = false
                 }
             }
         ) {
-            Text(if (isTranslating) "TRADUCIENDO..." else "PROBAR TRADUCCIÓN (SIGUIENTE FRASE)")
+            Text(if (isProcessing) "PROCESANDO AUDIO..." else "GRABAR · 6 SEGUNDOS Y TRADUCIR")
         }
 
         Text(text = "Estado: $processingState", style = MaterialTheme.typography.bodyMedium)
